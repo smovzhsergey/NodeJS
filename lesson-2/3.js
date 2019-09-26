@@ -2,6 +2,7 @@ class TimersManager {
 	
     constructor() {
 		this.timers = [];
+		this.logs = [];
 		this.isStart = false;
 	}
 	
@@ -51,19 +52,43 @@ class TimersManager {
 	}
 
 	_startSingleTimer (timer) {
+        
 		const { delay, interval, job , cbArgs } = timer;
-			let timerID;
+		let timerID;
 
 		if (interval) {
-			timerID = setInterval(job, delay, ...cbArgs);
+			timerID = setInterval(
+                () => this._handlerTimerJob(timer),
+                delay
+            );
 		} else {
-			timerID = setTimeout(job, delay, ...cbArgs);
+			timerID = setTimeout(
+                () => this._handlerTimerJob(timer),
+                delay
+            );
 		}
 
 		timer.timerID = timerID;
-	}
+    }
 
-	_clearSingleTimer (timer) {
+    _handlerTimerJob (timer) {
+        let error;
+        let result;
+
+        try {
+            result = timer.job(...timer.cbArgs);
+        } catch (err) {
+            error = {
+                name: err.name,
+                message: err.message,
+                stack: err.stack
+            }
+        }
+
+        this._log(timer, result, error);
+    }
+        
+    _clearSingleTimer (timer) {
 		if (timer.interval) {
 			clearInterval(timer.timerID);
 			timer.timerID = null;
@@ -72,6 +97,21 @@ class TimersManager {
 			timer.timerID = null;
 		}
 	}
+
+	_log (timer, result, error) {
+        const log = {
+            name: timer.name,
+            in: timer.cbArgs,
+            out: result,
+            created: new Date(),
+        };
+
+        if (error) {
+            log.error = error;
+        }
+
+        this.logs.push(log);
+    }
 
     add (timer, ...cbArgs	) {
 
@@ -95,7 +135,7 @@ class TimersManager {
     }
 
     start () {
-		
+        
 		this.isStart = true;
 
 		for (const timer of this.timers) {
@@ -157,27 +197,39 @@ class TimersManager {
 			console.log(err.message);
 		}
     }
+
+    print () {
+        console.log(this.logs);
+    }
 }
 
 const manager = new TimersManager();
 
 const t1 = {
-	name: 't1',
-	delay: 1000,
-	interval: false,
-	job: () => { console.log('t1') },
+    name: 't1',
+    delay: 1000,
+    interval: false,
+    job: (a, b) => a + b
 };
 const t2 = {
-	name: 't2',
-	delay: 5000,
-	interval: false,
-	job: (a, b) => a + b,
+    name: 't2',
+    delay: 1000,
+    interval: false,
+    job: () => {throw new Error('We have a problem!')}
+};
+const t3 = {
+    name: 't3',
+    delay: 1000,
+    interval: false,
+    job: n => n
 };
 
-manager.add(t1);
-manager.add(t2, 1, 2);
+manager.add(t1, 1, 2) // 3
+manager.add(t2); // undefined
+manager.add(t3, 1); // 1
 manager.start();
-console.log(1);
-manager.pause('t1');
+setTimeout(() => {
+    manager.print();
+}, 2000);
 
 exports.TimersManager = TimersManager;

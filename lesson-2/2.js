@@ -2,6 +2,7 @@ class TimersManager {
 	
     constructor() {
 		this.timers = [];
+		this.logs = [];
 		this.isStart = false;
 	}
 	
@@ -51,19 +52,33 @@ class TimersManager {
 	}
 
 	_startSingleTimer (timer) {
+        
 		const { delay, interval, job , cbArgs } = timer;
-			let timerID;
+		let timerID;
 
 		if (interval) {
-			timerID = setInterval(job, delay, ...cbArgs);
+			timerID = setInterval(
+                () => this._handlerTimerJob(timer),
+                delay
+            );
 		} else {
-			timerID = setTimeout(job, delay, ...cbArgs);
+			timerID = setTimeout(
+                () => this._handlerTimerJob(timer),
+                delay
+            );
 		}
 
 		timer.timerID = timerID;
-	}
+    }
 
-	_clearSingleTimer (timer) {
+    _handlerTimerJob (timer) {
+        
+        const result = timer.job(...timer.cbArgs);
+        
+        this._log(timer, result);
+    }
+        
+    _clearSingleTimer (timer) {
 		if (timer.interval) {
 			clearInterval(timer.timerID);
 			timer.timerID = null;
@@ -72,6 +87,16 @@ class TimersManager {
 			timer.timerID = null;
 		}
 	}
+
+	_log (timer, result) {
+
+        this.logs.push({
+            name: timer.name,
+            in: timer.cbArgs,
+            out: result,
+            created: new Date(),
+        });
+    }
 
     add (timer, ...cbArgs	) {
 
@@ -95,7 +120,7 @@ class TimersManager {
     }
 
     start () {
-		
+        
 		this.isStart = true;
 
 		for (const timer of this.timers) {
@@ -157,6 +182,10 @@ class TimersManager {
 			console.log(err.message);
 		}
     }
+
+    print () {
+        console.log(this.logs);
+    }
 }
 
 const manager = new TimersManager();
@@ -165,19 +194,18 @@ const t1 = {
 	name: 't1',
 	delay: 1000,
 	interval: false,
-	job: () => { console.log('t1') },
+	job: (a, b) => a ** b,
 };
 const t2 = {
 	name: 't2',
-	delay: 5000,
+	delay: 2000,
 	interval: false,
 	job: (a, b) => a + b,
 };
 
-manager.add(t1);
-manager.add(t2, 1, 2);
+manager.add(t1, 2, 3).add(t2, 6, 4);
 manager.start();
-console.log(1);
-manager.pause('t1');
+manager.print();
+setTimeout(() => manager.print(), 2000);
 
 exports.TimersManager = TimersManager;
